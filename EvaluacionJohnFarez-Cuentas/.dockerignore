@@ -1,0 +1,6 @@
+# Excluir artefactos y secretos del contexto de build; el Dockerfile multi-stage compila desde el código fuente.
+target
+.git
+.env
+.vscode
+*.md

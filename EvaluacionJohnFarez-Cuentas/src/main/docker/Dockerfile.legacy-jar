@@ -1,0 +1,11 @@
+# Runtime Java 25 para artefactos compilados localmente.
+# Compilar: ./mvnw package -DskipTests -Dquarkus.package.jar.type=legacy-jar
+# Construir: docker build -f src/main/docker/Dockerfile.legacy-jar -t evaluacion-cuentas-java25 .
+FROM eclipse-temurin:25-jre
+WORKDIR /deployments
+COPY --chown=185:0 target/lib/ ./lib/
+COPY --chown=185:0 target/*-runner.jar ./quarkus-run.jar
+EXPOSE 8080
+USER 185
+ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS_APPEND -jar /deployments/quarkus-run.jar"]

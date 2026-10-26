@@ -1,0 +1,5 @@
+*
+!target/
+!target/lib/
+!target/lib/**
+!target/*-runner.jar

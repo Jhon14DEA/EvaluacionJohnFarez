@@ -1,0 +1,23 @@
+<section aria-labelledby="titulo-cuentas">
+  <div class="page-heading"><div><p class="eyebrow">VISTA GENERAL</p><h1 id="titulo-cuentas">Cuentas bancarias</h1>
+    <p class="subtitle">Consulta los saldos y el estado de tus cuentas en un solo lugar.</p></div>
+    <p-button label="Actualizar" ariaLabel="Actualizar" icon="pi pi-refresh" [outlined]="true" [disabled]="estado() === 'loading'" (onClick)="recargar()" /></div>
+  <div class="metrics" aria-label="Indicadores de las cuentas">
+    <article><span>Cuentas encontradas</span><strong>{{ total() }}</strong><small>{{ buscando ? 'Coinciden con la búsqueda' : 'Registradas en total' }}</small></article>
+    <article><span>En esta página</span><strong>{{ cuentas().length }}</strong><small>Filas mostradas</small></article>
+  </div>
+  <div class="panel" [attr.aria-busy]="estado() === 'loading'">
+    <div class="panel-header"><div><h2>Listado de cuentas</h2><p>Ordena por saldo con el encabezado de la tabla; la paginación y el filtro se resuelven en el servidor.</p></div>
+      <div class="search"><label for="buscar">Buscar cuenta</label><div><i class="pi pi-search" aria-hidden="true"></i>
+        <input id="buscar" pInputText type="search" [formControl]="busqueda" placeholder="Número o titular" /></div></div></div>
+    @if (estado() === 'error') {
+      <div class="error" role="alert"><p-message severity="error">No pudimos cargar las cuentas. Comprueba la conexión e inténtalo nuevamente.</p-message>
+        <p-button label="Reintentar" ariaLabel="Reintentar" icon="pi pi-refresh" (onClick)="recargar()" /></div>
+    } @else {
+      <app-cuentas-table [cuentas]="cuentas()" [total]="total()" [cargando]="estado() === 'loading'"
+        [buscando]="buscando" [filas]="filas" (cargar)="alCargar($event)" />
+      <div class="panel-footer"><span>Importes en dólares estadounidenses (USD)</span>
+        <span role="status">Actualizado a las {{ actualizado() | date:'HH:mm:ss' }}</span></div>
+    }
+  </div>
+</section>

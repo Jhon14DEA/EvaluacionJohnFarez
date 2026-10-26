@@ -1,0 +1,88 @@
+# Entorno completo de evaluación: base de datos + backend + frontend con un solo comando.
+#
+#   docker compose -f compose.full.yaml --env-file EvaluacionJohnFarez-Cuentas/.env up -d --build
+#
+# Acceso:
+#   - Frontend (Angular + nginx): http://localhost:4200
+#   - Backend (Quarkus):          http://localhost:8080  (Swagger UI en /q/swagger-ui/)
+#   - SQL Server:                 127.0.0.1:14334
+#
+# El compose.yaml de EvaluacionJohnFarez-Cuentas sigue disponible para levantar solo la base.
+name: evaluacion-john-farez-full
+
+services:
+  # --- Base de datos SQL Server 2022 ---
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-CU20-ubuntu-22.04
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Configure EvaluacionJohnFarez-Cuentas/.env}
+      DB_PASSWORD: ${DB_PASSWORD:?Configure EvaluacionJohnFarez-Cuentas/.env}
+      MSSQL_MEMORY_LIMIT_MB: "3072"
+    ports:
+      - "127.0.0.1:${FULL_SQLSERVER_PORT:-14334}:1433"
+    mem_limit: 4g
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+      - ./EvaluacionJohnFarez-Cuentas/docker/bootstrap.sql:/bootstrap.sql:ro
+      - ./EvaluacionJohnFarez-Cuentas/docker/bootstrap.sh:/bootstrap.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "SQLCMDPASSWORD=$$MSSQL_SA_PASSWORD /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q 'SELECT 1' -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # --- Bootstrap: crea bases, login y usuario; corre una sola vez y termina ---
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-CU20-ubuntu-22.04
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Configure EvaluacionJohnFarez-Cuentas/.env}
+      DB_PASSWORD: ${DB_PASSWORD:?Configure EvaluacionJohnFarez-Cuentas/.env}
+    volumes:
+      - ./EvaluacionJohnFarez-Cuentas/docker/bootstrap.sql:/bootstrap.sql:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        SQLCMDPASSWORD="$$MSSQL_SA_PASSWORD"
+        /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -C -b
+        -v DB_PASSWORD="$$DB_PASSWORD" -i /bootstrap.sql
+    restart: "no"
+
+  # --- Backend Quarkus (Cuentas) ---
+  backend:
+    build:
+      context: ./EvaluacionJohnFarez-Cuentas
+      dockerfile: Dockerfile
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      DB_USERNAME: ${DB_USERNAME:-evaluacion_app}
+      DB_PASSWORD: ${DB_PASSWORD:?Configure EvaluacionJohnFarez-Cuentas/.env}
+      DB_NAME: ${DB_NAME:-evaluacion_john_farez}
+      # Dentro de la red de Compose la base responde por el nombre de servicio y el puerto interno 1433.
+      QUARKUS_DATASOURCE_JDBC_URL: "jdbc:sqlserver://sqlserver:1433;databaseName=${DB_NAME:-evaluacion_john_farez};encrypt=true;trustServerCertificate=true"
+      # El navegador llega al backend a través del proxy del frontend (mismo origen), pero se
+      # permite también el acceso directo en desarrollo desde localhost:4200.
+      CORS_ORIGINS: "http://localhost:${FULL_FRONTEND_PORT:-4200},http://127.0.0.1:${FULL_FRONTEND_PORT:-4200},http://localhost"
+    ports:
+      - "127.0.0.1:${FULL_BACKEND_PORT:-8080}:8080"
+
+  # --- Frontend Angular servido por nginx (proxy /api hacia el backend) ---
+  frontend:
+    build:
+      context: ./EvaluacionJohnFarez-Frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:${FULL_FRONTEND_PORT:-4200}:80"
+
+volumes:
+  sqlserver-data:

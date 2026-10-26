@@ -1,0 +1,25 @@
+name: evaluacion-john-farez
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-CU20-ubuntu-22.04
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Configure .env}
+      DB_PASSWORD: ${DB_PASSWORD:?Configure .env}
+      MSSQL_MEMORY_LIMIT_MB: "3072"
+    ports:
+      - "127.0.0.1:${SQLSERVER_PORT:-14333}:1433"
+    mem_limit: 4g
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+      - ./docker/bootstrap.sql:/bootstrap.sql:ro
+      - ./docker/bootstrap.sh:/bootstrap.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "SQLCMDPASSWORD=$$MSSQL_SA_PASSWORD /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q 'SELECT 1' -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+volumes:
+  sqlserver-data:

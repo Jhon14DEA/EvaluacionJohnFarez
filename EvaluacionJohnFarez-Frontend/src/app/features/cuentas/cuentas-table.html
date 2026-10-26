@@ -1,0 +1,20 @@
+<p class="mobile-hint">Desliza la tabla para ver todos los campos.</p>
+<p-table [value]="cuentas()" dataKey="id"
+  [lazy]="true" (onLazyLoad)="onLazyLoad($event)" [loading]="cargando()"
+  sortField="saldo" [sortOrder]="1"
+  [paginator]="true" [rows]="filas()" [totalRecords]="total()" [rowsPerPageOptions]="[10, 25, 50]"
+  [showCurrentPageReport]="true" currentPageReportTemplate="{first} a {last} de {totalRecords} cuentas"
+  [tableStyle]="{ 'min-width': '650px' }">
+  <ng-template #header><tr><th scope="col">Número de cuenta</th><th scope="col">Titular</th>
+    <th scope="col">Tipo</th><th scope="col" pSortableColumn="saldo" class="saldo-heading">Saldo actual <p-sortIcon field="saldo" /></th>
+    <th scope="col">Estado</th></tr></ng-template>
+  <ng-template #body let-cuenta><tr><td class="account-number">{{ cuenta.numeroCuenta }}</td><td class="holder">{{ cuenta.titular }}</td>
+    <td>{{ cuenta.tipo === 'ahorro' ? 'Ahorro' : 'Corriente' }}</td>
+    <td class="money saldo">{{ cuenta.saldo | usdExact }}</td>
+    <td><p-tag [value]="cuenta.estado === 'activo' ? 'Activo' : 'Inactivo'"
+      [severity]="cuenta.estado === 'activo' ? 'success' : 'secondary'" /></td></tr></ng-template>
+  <ng-template #emptymessage><tr><td colspan="5"><div class="empty" role="status">
+    <i class="pi pi-inbox" aria-hidden="true"></i><strong>{{ buscando() ? 'Sin coincidencias' : 'Todavía no hay cuentas' }}</strong>
+    <span>{{ buscando() ? 'Prueba con otro número o titular.' : 'Las cuentas registradas aparecerán aquí.' }}</span>
+  </div></td></tr></ng-template>
+</p-table>

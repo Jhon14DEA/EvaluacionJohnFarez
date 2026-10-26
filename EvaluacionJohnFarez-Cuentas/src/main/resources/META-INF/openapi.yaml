@@ -1,0 +1,744 @@
+openapi: 3.0.3
+info:
+  title: EvaluacionJohnFarez - Backend
+  version: "1.0"
+  description: >-
+    API REST de cuentas y transferencias interbancarias. Importes e
+    identificadores JSON son cadenas exactas; los contadores son numeros JSON.
+    Fechas UTC ISO-8601 con offset; dia financiero America/Guayaquil. API local
+    de evaluacion, sin autenticacion ni TLS productivo.
+tags:
+  - name: Cuentas
+    description: Registro, listado y resumen de cuentas bancarias.
+  - name: Transferencias
+    description: Ejecucion y consulta de historial de transferencias.
+paths:
+  /api/cuentas:
+    post:
+      tags: [Cuentas]
+      operationId: crearCuenta
+      summary: Registrar cuenta bancaria
+      description: >-
+        Numero unico de exactamente 10 digitos (conserva ceros), titular
+        obligatorio hasta 150 caracteres, tipo ahorro/corriente, estado
+        activo/inactivo y saldo inicial no negativo con hasta 17 enteros y 2
+        decimales.
+      requestBody:
+        required: true
+        description: JSON con importes como cadenas exactas; no entidades JPA.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearCuentaRequest'
+            examples:
+              solicitud:
+                value:
+                  numeroCuenta: "0012345678"
+                  titular: Titular de ejemplo
+                  tipo: ahorro
+                  saldoInicial: "100.00"
+                  estado: activo
+      responses:
+        "201":
+          description: Cuenta creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuentaResponse'
+              examples:
+                ejemplo:
+                  value:
+                    id: "1"
+                    numeroCuenta: "0012345678"
+                    titular: Titular de ejemplo
+                    tipo: ahorro
+                    saldo: "100.00"
+                    estado: activo
+        "400":
+          description: "VALIDACION, JSON_INVALIDO o HTTP_400: campos o JSON invalidos"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ejemplo:
+                  value:
+                    codigo: VALIDACION
+                    mensaje: La solicitud contiene campos invalidos
+                    erroresCampos:
+                      - campo: saldoInicial
+                        mensaje: El saldo inicial no puede ser negativo
+        "409":
+          description: "CUENTA_DUPLICADA: numero ya registrado"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ejemplo:
+                  value:
+                    codigo: CUENTA_DUPLICADA
+                    mensaje: Ya existe una cuenta con ese numero
+                    erroresCampos: []
+        "500":
+          description: "ERROR_INTERNO: error tecnico"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ejemplo:
+                  value:
+                    codigo: ERROR_INTERNO
+                    mensaje: No se pudo procesar la solicitud
+                    erroresCampos: []
+    get:
+      tags: [Cuentas]
+      operationId: listarCuentas
+      summary: Listar cuentas
+      description: >-
+        Todas las cuentas, por identificador ascendente; [] si no hay
+        registros. Paginacion opcional: sin page/size devuelve el arreglo plano;
+        con page/size devuelve un objeto PaginaResponse con metadatos y la
+        cabecera X-Total-Count.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Numero de pagina base 0. Si se omite junto con size/q/sort, no se pagina.
+          schema:
+            type: integer
+            minimum: 0
+          example: 0
+        - name: size
+          in: query
+          required: false
+          description: Tamano de pagina (1 a 200; por defecto 20 cuando se pagina).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+          example: 20
+        - name: q
+          in: query
+          required: false
+          description: Filtro de texto; coincide por numero de cuenta o titular (sin distinguir mayusculas).
+          schema:
+            type: string
+          example: "001"
+        - name: sort
+          in: query
+          required: false
+          description: Campo de ordenamiento. Por defecto id.
+          schema:
+            type: string
+            enum: [saldo, id, numeroCuenta, titular]
+          example: saldo
+        - name: order
+          in: query
+          required: false
+          description: Direccion del ordenamiento. Por defecto asc.
+          schema:
+            type: string
+            enum: [asc, desc]
+          example: desc
+      responses:
+        "200":
+          description: >-
+            Lista de cuentas. Arreglo plano sin paginacion, u objeto
+            PaginaResponse cuando se envia page, size, q o sort.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/CuentaResponse'
+                  - $ref: '#/components/schemas/PaginaCuentaResponse'
+              examples:
+                lista:
+                  summary: Sin paginacion (arreglo plano)
+                  value:
+                    - id: "1"
+                      numeroCuenta: "0012345678"
+                      titular: Titular de ejemplo
+                      tipo: ahorro
+                      saldo: "100.00"
+                      estado: activo
+                pagina:
+                  summary: Con paginacion (page/size)
+                  value:
+                    contenido:
+                      - id: "1"
+                        numeroCuenta: "0012345678"
+                        titular: Titular de ejemplo
+                        tipo: ahorro
+                        saldo: "100.00"
+                        estado: activo
+                    pagina: 0
+                    tamano: 20
+                    totalElementos: 1
+                    totalPaginas: 1
+        "400":
+          description: "PAGINACION_INVALIDA (page/size fuera de rango) u ORDEN_INVALIDO (sort/order no permitido)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                paginacion:
+                  value:
+                    codigo: PAGINACION_INVALIDA
+                    mensaje: size debe estar entre 1 y 200
+                    erroresCampos: []
+                orden:
+                  value:
+                    codigo: ORDEN_INVALIDO
+                    mensaje: order admite asc o desc
+                    erroresCampos: []
+        "500":
+          description: ERROR_INTERNO
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/cuentas/{id}/resumen:
+    get:
+      tags: [Cuentas]
+      operationId: resumenCuenta
+      summary: Consultar resumen financiero
+      description: >-
+        Saldo actual y movimientos de salida ejecutados hoy
+        (completada/en_revision). Dia calendario America/Guayaquil; sospechosas
+        tambien del dia actual. Rechazadas excluidas. Lectura consistente bajo
+        bloqueo de cuenta.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador BIGINT de cuenta; entero positivo hasta 9223372036854775807.
+          schema:
+            type: string
+          example: "1"
+      responses:
+        "200":
+          description: Resumen actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumenCuentaResponse'
+              examples:
+                ejemplo:
+                  value:
+                    cuentaId: "1"
+                    saldoActual: "89.75"
+                    totalTransferidoHoy: "10.25"
+                    cantidadTransferenciasHoy: 1
+                    cantidadTransferenciasSospechosas: 0
+        "404":
+          description: "CUENTA_NO_EXISTE o ruta no convertible a long"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ejemplo:
+                  value:
+                    codigo: CUENTA_NO_EXISTE
+                    mensaje: La cuenta no existe
+                    erroresCampos: []
+        "500":
+          description: ERROR_INTERNO
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/transferencias:
+    post:
+      tags: [Transferencias]
+      operationId: ejecutarTransferencia
+      summary: Ejecutar transferencia
+      description: >-
+        Ambas cuentas existentes, activas y distintas; monto positivo hasta 2
+        decimales y saldo suficiente. Debito, credito y registro atomicos bajo
+        una transaccion local. Monto >5000 o sexta operacion ejecutada en una
+        hora: en_revision, con movimiento realizado. Limite diario 10000
+        America/Guayaquil; rechazo sin mover saldos. Rechazos de negocio
+        persistidos con idempotencia; validaciones y cuentas inexistentes no
+        crean registros. Fallos tecnicos revierten la transaccion.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: >-
+            1-128 caracteres ASCII alfanumericos o ._:-; sensible a mayusculas.
+            Omitida: UUID generado. Para recuperar respuesta perdida, generar y
+            conservar antes del primer POST. Misma clave y datos: mismo
+            resultado confirmado o rechazo persistido; datos distintos: 409.
+            Nunca reintentar POST automaticamente; resultado desconocido:
+            reintento explicito con misma clave y datos.
+          schema:
+            type: string
+            pattern: "[A-Za-z0-9._:-]{1,128}"
+          example: ejemplo-ca10-001
+      requestBody:
+        required: true
+        description: JSON con identificadores e importes como cadenas exactas; no entidades JPA.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearTransferenciaRequest'
+            examples:
+              solicitud:
+                value:
+                  cuentaOrigenId: "1"
+                  cuentaDestinoId: "2"
+                  monto: "10.25"
+      responses:
+        "201":
+          description: Transferencia ejecutada o replay; completada o en_revision
+          headers:
+            Idempotency-Key:
+              description: Clave conservada para reintento explicito con los mismos datos
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferenciaResponse'
+              examples:
+                completada:
+                  value:
+                    id: "1"
+                    cuentaOrigenId: "1"
+                    cuentaDestinoId: "2"
+                    monto: "10.25"
+                    fecha: "2026-10-23T15:00:00Z"
+                    estado: completada
+                    claveIdempotencia: ejemplo-ca10-001
+                en_revision:
+                  value:
+                    id: "1"
+                    cuentaOrigenId: "1"
+                    cuentaDestinoId: "2"
+                    monto: "5000.01"
+                    fecha: "2026-10-23T15:00:00Z"
+                    estado: en_revision
+                    claveIdempotencia: ejemplo-ca10-001
+        "400":
+          description: "VALIDACION, JSON_INVALIDO, SOLICITUD_INVALIDA, CUENTAS_IGUALES o CLAVE_INVALIDA: datos invalidos"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ejemplo:
+                  value:
+                    codigo: VALIDACION
+                    mensaje: La solicitud contiene campos invalidos
+                    erroresCampos:
+                      - campo: monto
+                        mensaje: El monto debe ser positivo
+        "404":
+          description: "ORIGEN_NO_EXISTE o DESTINO_NO_EXISTE: cuenta origen o destino inexistente"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                origen:
+                  value:
+                    codigo: ORIGEN_NO_EXISTE
+                    mensaje: La cuenta origen no existe
+                    erroresCampos: []
+                destino:
+                  value:
+                    codigo: DESTINO_NO_EXISTE
+                    mensaje: La cuenta destino no existe
+                    erroresCampos: []
+        "409":
+          description: "CONFLICTO_IDEMPOTENCIA: clave usada con otros datos"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ejemplo:
+                  value:
+                    codigo: CONFLICTO_IDEMPOTENCIA
+                    mensaje: La clave ya fue utilizada con datos diferentes
+                    erroresCampos: []
+        "422":
+          description: >-
+            SALDO_INSUFICIENTE, CUENTA_INACTIVA, SALDO_FUERA_DE_RANGO o
+            LIMITE_DIARIO_EXCEDIDO; este ultimo incluye montoRestanteDisponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ejemplo:
+                  value:
+                    codigo: LIMITE_DIARIO_EXCEDIDO
+                    mensaje: "Limite diario excedido; monto restante disponible: 2000.00"
+                    erroresCampos: []
+                    montoRestanteDisponible: "2000.00"
+        "500":
+          description: "ERROR_INTERNO: fallo tecnico; conservar clave ante incertidumbre"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ejemplo:
+                  value:
+                    codigo: ERROR_INTERNO
+                    mensaje: No se pudo procesar la solicitud
+                    erroresCampos: []
+        "503":
+          description: "OPERACION_OCUPADA: no se pudo adquirir bloqueo; no se ejecuto el intento. Conservar clave"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ejemplo:
+                  value:
+                    codigo: OPERACION_OCUPADA
+                    mensaje: No se pudo adquirir el bloqueo de idempotencia; no se ejecuto la transferencia
+                    erroresCampos: []
+    get:
+      tags: [Transferencias]
+      operationId: historialTransferencias
+      summary: Consultar historial
+      description: >-
+        Filtros opcionales combinables mediante AND; limites de fecha
+        inclusivos ISO-8601 con zona. Orden fecha DESC, id DESC. Incluye
+        rechazos persistidos y su detalle, sin movimientos de saldo. Sin
+        paginacion; [] si no hay coincidencias.
+      parameters:
+        - name: cuentaOrigenId
+          in: query
+          required: false
+          description: Identificador BIGINT positivo de cuenta origen.
+          schema:
+            type: integer
+            format: int64
+          example: 1
+        - name: cuentaDestinoId
+          in: query
+          required: false
+          description: Identificador BIGINT positivo de cuenta destino.
+          schema:
+            type: integer
+            format: int64
+          example: 2
+        - name: fechaDesde
+          in: query
+          required: false
+          description: Inicio inclusivo ISO-8601 con offset; codificar + como %2B en URL.
+          schema:
+            type: string
+          example: "2026-10-23T05:00:00Z"
+        - name: fechaHasta
+          in: query
+          required: false
+          description: Fin inclusivo ISO-8601 con offset.
+          schema:
+            type: string
+          example: "2026-10-24T04:59:59.999999Z"
+        - name: estado
+          in: query
+          required: false
+          description: "Estado persistido: completada, rechazada o en_revision."
+          schema:
+            type: string
+            enum: [completada, rechazada, en_revision]
+          example: completada
+        - name: page
+          in: query
+          required: false
+          description: Numero de pagina base 0. Si se omite junto con size, no se pagina.
+          schema:
+            type: integer
+            minimum: 0
+          example: 0
+        - name: size
+          in: query
+          required: false
+          description: Tamano de pagina (1 a 200; por defecto 20 cuando se pagina).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+          example: 20
+      responses:
+        "200":
+          description: >-
+            Historial filtrado. Arreglo plano sin paginacion, u objeto
+            PaginaResponse cuando se envia page o size.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/HistorialTransferenciaResponse'
+                  - $ref: '#/components/schemas/PaginaHistorialResponse'
+              examples:
+                ejemplo:
+                  value:
+                    - id: "2"
+                      cuentaOrigenId: "1"
+                      cuentaDestinoId: "2"
+                      monto: "2500.00"
+                      fecha: "2026-10-23T15:00:00Z"
+                      estado: rechazada
+                      claveIdempotencia: ejemplo-ca10-002
+                      rechazo:
+                        codigo: LIMITE_DIARIO_EXCEDIDO
+                        mensaje: "Limite diario excedido; monto restante disponible: 2000.00"
+                        erroresCampos: []
+                        montoRestanteDisponible: "2000.00"
+                    - id: "1"
+                      cuentaOrigenId: "1"
+                      cuentaDestinoId: "2"
+                      monto: "10.25"
+                      fecha: "2026-10-23T15:00:00Z"
+                      estado: completada
+                      claveIdempotencia: ejemplo-ca10-001
+        "400":
+          description: "FILTROS_INVALIDOS o parametros invalidos: IDs positivos, fechaDesde <= fechaHasta, estado valido"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ejemplo:
+                  value:
+                    codigo: FILTROS_INVALIDOS
+                    mensaje: Estado invalido
+                    erroresCampos: []
+        "404":
+          description: "Parametro numerico no convertible a BIGINT: HTTP_404 del framework"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ejemplo:
+                  value:
+                    codigo: HTTP_404
+                    mensaje: La solicitud no pudo procesarse
+                    erroresCampos: []
+        "500":
+          description: ERROR_INTERNO
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    CrearCuentaRequest:
+      type: object
+      required: [numeroCuenta, titular, tipo, saldoInicial, estado]
+      properties:
+        numeroCuenta:
+          type: string
+          pattern: "[0-9]{10}"
+          description: Numero de exactamente 10 digitos; conserva ceros iniciales.
+        titular:
+          type: string
+          maxLength: 150
+          description: Titular obligatorio, maximo 150 caracteres.
+        tipo:
+          type: string
+          enum: [ahorro, corriente]
+          description: Tipo de cuenta.
+        saldoInicial:
+          type: string
+          description: Saldo inicial USD no negativo; hasta 17 enteros y 2 decimales.
+        estado:
+          type: string
+          enum: [activo, inactivo]
+          description: Estado de cuenta.
+    CuentaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identificador BIGINT positivo, cadena exacta hasta 9223372036854775807.
+        numeroCuenta:
+          type: string
+          description: Numero de exactamente 10 digitos; conserva ceros iniciales.
+        titular:
+          type: string
+          description: Titular obligatorio, maximo 150 caracteres.
+        tipo:
+          type: string
+          enum: [ahorro, corriente]
+          description: Tipo de cuenta.
+        saldo:
+          type: string
+          description: Saldo USD no negativo; cadena decimal exacta.
+        estado:
+          type: string
+          enum: [activo, inactivo]
+          description: Estado de cuenta.
+    CrearTransferenciaRequest:
+      type: object
+      required: [cuentaOrigenId, cuentaDestinoId, monto]
+      properties:
+        cuentaOrigenId:
+          type: string
+          description: ID de cuenta origen (no numero de cuenta), cadena BIGINT positiva.
+        cuentaDestinoId:
+          type: string
+          description: ID de cuenta destino, distinto del origen, cadena BIGINT positiva.
+        monto:
+          type: string
+          description: USD exactos positivos, hasta 17 enteros y 2 decimales; sin exponentes en JSON de salida.
+    TransferenciaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identificador BIGINT positivo, cadena exacta hasta 9223372036854775807.
+        cuentaOrigenId:
+          type: string
+          description: ID de cuenta origen (no numero de cuenta), cadena BIGINT positiva.
+        cuentaDestinoId:
+          type: string
+          description: ID de cuenta destino, distinto del origen, cadena BIGINT positiva.
+        monto:
+          type: string
+          description: USD exactos positivos, hasta 17 enteros y 2 decimales; sin exponentes en JSON de salida.
+        fecha:
+          type: string
+          format: date-time
+          description: Instante UTC ISO-8601 con offset, precision de microsegundos.
+        estado:
+          type: string
+          enum: [completada, en_revision]
+          description: Resultado ejecutado; en_revision tambien movio saldos.
+        claveIdempotencia:
+          type: string
+          description: Clave sensible a mayusculas que identifica el intento logico.
+    HistorialTransferenciaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identificador BIGINT positivo, cadena exacta hasta 9223372036854775807.
+        cuentaOrigenId:
+          type: string
+          description: ID de cuenta origen (no numero de cuenta), cadena BIGINT positiva.
+        cuentaDestinoId:
+          type: string
+          description: ID de cuenta destino, distinto del origen, cadena BIGINT positiva.
+        monto:
+          type: string
+          description: USD exactos positivos, hasta 17 enteros y 2 decimales; sin exponentes en JSON de salida.
+        fecha:
+          type: string
+          format: date-time
+          description: Instante UTC ISO-8601 con offset, precision de microsegundos.
+        estado:
+          type: string
+          enum: [completada, rechazada, en_revision]
+          description: Estado persistido; rechazada no movio saldos.
+        claveIdempotencia:
+          type: string
+          description: Clave sensible a mayusculas que identifica el intento logico.
+        rechazo:
+          allOf:
+            - $ref: '#/components/schemas/ErrorResponse'
+          description: Detalle de rechazo persistido; ausente en movimientos ejecutados.
+    ResumenCuentaResponse:
+      type: object
+      properties:
+        cuentaId:
+          type: string
+          description: Identificador BIGINT de cuenta, cadena exacta.
+        saldoActual:
+          type: string
+          description: Saldo actual USD, cadena exacta.
+        totalTransferidoHoy:
+          type: string
+          description: Total USD ejecutado de salida hoy en America/Guayaquil; excluye rechazos.
+        cantidadTransferenciasHoy:
+          type: integer
+          format: int64
+          description: Cantidad de transferencias de salida ejecutadas hoy en America/Guayaquil.
+        cantidadTransferenciasSospechosas:
+          type: integer
+          format: int64
+          description: Cantidad de transferencias de salida en_revision ejecutadas hoy en America/Guayaquil.
+    ErrorResponse:
+      type: object
+      properties:
+        codigo:
+          type: string
+          description: Codigo estable de validacion, negocio o fallo tecnico.
+        mensaje:
+          type: string
+          description: Detalle legible del error.
+        erroresCampos:
+          type: array
+          description: Campos invalidos; lista vacia si no corresponde validacion de campos.
+          items:
+            $ref: '#/components/schemas/ErrorCampo'
+        montoRestanteDisponible:
+          type: string
+          description: USD restantes del limite diario; presente en LIMITE_DIARIO_EXCEDIDO.
+    ErrorCampo:
+      type: object
+      properties:
+        campo:
+          type: string
+          description: Nombre del campo invalido.
+        mensaje:
+          type: string
+          description: Detalle legible del error.
+    PaginaCuentaResponse:
+      type: object
+      description: Pagina de cuentas con metadatos; se devuelve solo al enviar page o size.
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/CuentaResponse'
+        pagina:
+          type: integer
+          description: Numero de pagina base 0.
+        tamano:
+          type: integer
+          description: Tamano de pagina solicitado.
+        totalElementos:
+          type: integer
+          format: int64
+          description: Total de registros que cumplen el filtro.
+        totalPaginas:
+          type: integer
+          description: Numero total de paginas.
+    PaginaHistorialResponse:
+      type: object
+      description: Pagina de transferencias con metadatos; se devuelve solo al enviar page o size.
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistorialTransferenciaResponse'
+        pagina:
+          type: integer
+          description: Numero de pagina base 0.
+        tamano:
+          type: integer
+          description: Tamano de pagina solicitado.
+        totalElementos:
+          type: integer
+          format: int64
+          description: Total de registros que cumplen el filtro.
+        totalPaginas:
+          type: integer
+          description: Numero total de paginas.

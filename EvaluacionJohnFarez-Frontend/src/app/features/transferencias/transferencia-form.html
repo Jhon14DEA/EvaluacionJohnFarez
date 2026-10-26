@@ -1,0 +1,27 @@
+<section><p class="eyebrow">MOVIMIENTOS</p><h1>Nueva transferencia</h1><p>Envía fondos entre cuentas bancarias.</p>
+@if (service.errorAlmacenamiento(); as aviso) { <p-message severity="warn" role="alert">{{ aviso }}</p-message> }
+@if (cargando()) { <p role="status">Cargando cuentas...</p> }
+@if (errorCuentas()) { <p-message severity="error">No se pudieron actualizar las cuentas.</p-message><p-button label="Recargar cuentas" (onClick)="cargarCuentas()" /> }
+@if (confirmacion(); as resultado) {
+  <article class="panel" role="status"><p-message [severity]="resultado.estado === 'en_revision' ? 'warn' : 'success'">{{ resultado.estado === 'en_revision' ? 'Transferencia ejecutada y en revisión' : 'Transferencia completada' }}</p-message>
+    <dl><dt>Identificador</dt><dd>{{ resultado.id }}</dd><dt>Monto</dt><dd>{{ resultado.monto | usdExact }}</dd>
+    <dt>Cuenta origen (ID)</dt><dd>{{ resultado.cuentaOrigenId }}</dd><dt>Cuenta destino (ID)</dt><dd>{{ resultado.cuentaDestinoId }}</dd><dt>Estado</dt><dd>{{ resultado.estado }}</dd></dl>
+    <p-button label="Realizar otra transferencia" ariaLabel="Realizar otra transferencia" [disabled]="service.pendiente() !== null" (onClick)="otra()" /></article>
+} @else {
+<form class="panel" [formGroup]="form" (ngSubmit)="enviar()">
+  <label for="origen">Cuenta origen</label><p-select [fluid]="true" inputId="origen" formControlName="cuentaOrigenId" [options]="cuentas()" optionLabel="etiqueta" optionValue="id" placeholder="Selecciona una cuenta" [filter]="true" filterBy="etiqueta" appendTo="body" />
+  @if (form.controls.cuentaOrigenId.touched && form.controls.cuentaOrigenId.hasError('required')) { <small class="validation">Selecciona la cuenta origen.</small> }
+  <label for="destino">Cuenta destino</label><p-select [fluid]="true" inputId="destino" formControlName="cuentaDestinoId" [options]="cuentas()" optionLabel="etiqueta" optionValue="id" placeholder="Selecciona una cuenta" [filter]="true" filterBy="etiqueta" appendTo="body" />
+  @if (form.controls.cuentaDestinoId.touched && form.controls.cuentaDestinoId.hasError('required')) { <small class="validation">Selecciona la cuenta destino.</small> }
+  @if (form.hasError('iguales')) { <small class="validation">Origen y destino deben ser diferentes.</small> }
+  <label for="monto">Monto en USD</label><input pInputText id="monto" formControlName="monto" inputmode="decimal" autocomplete="off" placeholder="0,00" />
+  @if (form.controls.monto.touched && form.controls.monto.invalid) { <small class="validation">Ingresa un monto mayor que cero, con máximo dos decimales.</small> }
+  @if (error(); as fallo) { <div><p-message severity="error">{{ fallo.mensaje }}
+    @if (fallo.montoRestanteDisponible !== undefined) { <span> Disponible: {{ fallo.montoRestanteDisponible | usdExact }}</span> }
+  </p-message></div> }
+  @if (desconocido()) { <div><p-message severity="warn">El resultado es desconocido. La operación podría haberse ejecutado. Los datos están bloqueados; reintenta con la misma clave para recuperar el resultado. Mantén esta pestaña abierta.</p-message></div> }
+  @if (enviando()) { <p role="status">Procesando transferencia...</p> }
+  <p-button type="submit" [label]="desconocido() ? 'Reintentar misma operación' : 'Enviar transferencia'" [ariaLabel]="desconocido() ? 'Reintentar misma operación' : 'Enviar transferencia'"
+    [loading]="enviando()" [disabled]="service.recuperacionBloqueada() || enviando() || (!desconocido() && (form.invalid || cargando() || errorCuentas()))" />
+</form>
+}</section>
