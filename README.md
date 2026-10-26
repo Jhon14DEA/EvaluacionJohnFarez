@@ -8,8 +8,8 @@ El backend Quarkus, el frontend Angular y la base de datos SQL Server están des
 
 | Servicio | Acceso |
 |---|---|
-| Backend / Swagger UI | [http://18.191.247.205:8080/q/swagger-ui/#/](http://18.191.247.205:8080/q/swagger-ui/#/) |
-| Frontend Angular | [http://18.191.247.205:4200/](http://18.191.247.205:4200/) |
+| Backend / Swagger UI | [http://18.191.142.19:8080/q/swagger-ui/#/](http://18.191.142.19:8080/q/swagger-ui/#/) |
+| Frontend Angular | [http://18.191.142.19:4200/](http://18.191.142.19:4200/) |
 
 ## Arquitectura y tecnologías
 
