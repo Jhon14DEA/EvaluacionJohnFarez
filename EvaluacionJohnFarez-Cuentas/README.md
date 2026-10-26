@@ -129,6 +129,6 @@ docker build -f src/main/docker/Dockerfile.jvm -t evaluacion-cuentas-java25 .
 docker build -f src/main/docker/Dockerfile.legacy-jar -t evaluacion-cuentas-legacy-java25 .
 ```
 
-Estos comandos omiten la ejecuci?n de pruebas. La regresi?n requiere una base SQL aislada.
+Estos comandos omiten la ejecución de pruebas. La regresión requiere una base SQL aislada.
 Los Dockerfiles `native` corresponden a ejecutables nativos y no son una alternativa JVM;
-no forman parte de la validaci?n de ejecuci?n con JDK 25.
+no forman parte de la validación de ejecución con JDK 25.

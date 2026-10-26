@@ -44,7 +44,7 @@ python -B scripts/verify-ca07.py
 python -B scripts/verify-ca10.py
 ```
 
-Los tres scripts validan `JAVA_HOME` (JDK 25 completo) y `TEST_DB_NAME` antes de arrancar; rechazan la base principal y las bases de sistema. No descargan ni eligen otro JDK autom?ticamente.
+Los tres scripts validan `JAVA_HOME` (JDK 25 completo) y `TEST_DB_NAME` antes de arrancar; rechazan la base principal y las bases de sistema. No descargan ni eligen otro JDK automáticamente.
 
 Arrancan y cierran procesos propios. CA06 usa 8080/4200; CA07 8080/4200; CA10 8080 y Edge headless para Swagger, sin Angular dev server. Puertos libres, sin detener servicios ajenos. CA06/CA10 son lectura; CA07 crea cuentas/movimientos nuevos, nunca seleccionar la principal. Evidencias/capturas en tmp. Sin descarga de navegadores Playwright si Edge ya está instalado.
 

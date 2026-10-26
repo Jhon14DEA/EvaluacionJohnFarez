@@ -1,6 +1,15 @@
 # EvaluacionJohnFarez
 
-Sistema de cuentas y transferencias para la evaluación NETBY / Jardín Azuayo, basado en  «Reto Técnico Perfil Full Stack Mid Senior (Quarkus + Angular)». Aplicación de evaluación local, no habilitada para operaciones bancarias productivas.
+Sistema de cuentas y transferencias para la evaluación NETBY / Jardín Azuayo, basado en «Reto Técnico Perfil Full Stack Mid Senior (Quarkus + Angular)». Aplicación de evaluación con ejecución local y despliegue de demostración en AWS, no habilitada para operaciones bancarias productivas.
+
+## Despliegue en AWS
+
+El backend Quarkus, el frontend Angular y la base de datos SQL Server están desplegados en la **misma instancia Amazon EC2**, en la región **US East (Ohio), us-east-2**. La compilación y el despliegue del entorno se realizaron con **Docker Compose**.
+
+| Servicio | Acceso |
+|---|---|
+| Backend / Swagger UI | [http://18.191.247.205:8080/q/swagger-ui/#/](http://18.191.247.205:8080/q/swagger-ui/#/) |
+| Frontend Angular | [http://18.191.247.205:4200/](http://18.191.247.205:4200/) |
 
 ## Arquitectura y tecnologías
 
@@ -46,14 +55,14 @@ Abrir http://localhost:4200. Sin cuentas registradas, el dashboard estará vací
 ## JDK 25 consistente en terminal, Maven y VS Code
 
 El proyecto genera bytecode Java 25: no se puede ejecutar con Java 17 o 21.
-La configuraci?n `.vscode/settings.json` usa el JDK Temurin 25 instalado en este equipo
+La configuración `.vscode/settings.json` usa el JDK Temurin 25 instalado en este equipo
 para el proyecto y las nuevas terminales integradas. En otro equipo, ajustar la ruta
 `java.configuration.runtimes` y `terminal.integrated.env.windows` a su JDK 25.
-Despu?s de cambiarla, abrir una terminal nueva y comprobar `java -version`,
+Después de cambiarla, abrir una terminal nueva y comprobar `java -version`,
 `javac -version` y `mvnw.cmd -version` desde Cuentas: deben usar el mismo JDK 25.
 No se modifican variables globales de Windows. Para terminales externas, establecer
 `JAVA_HOME` y anteponer su carpeta `bin` al `PATH` como en el ejemplo de inicio.
-Los scripts Python de verificaci?n requieren `JAVA_HOME`, validan Java 25 y una
+Los scripts Python de verificación requieren `JAVA_HOME`, validan Java 25 y una
 `TEST_DB_NAME` aislada antes de arrancar procesos; no recurren a Java 17.
 
 ## Entorno completo con Docker Compose (un solo comando)
@@ -67,12 +76,12 @@ docker compose -f compose.full.yaml --env-file EvaluacionJohnFarez-Cuentas/.env 
 
 El entorno completo utiliza un volumen propio del proyecto `evaluacion-john-farez-full`.
 Su SQL Server se publica en **14334**, independiente del SQL existente en **14333**;
-no comparte ni migra el volumen de la instalaci?n local. El backend del contenedor
+no comparte ni migra el volumen de la instalación local. El backend del contenedor
 se conecta a `sqlserver:1433`, no al puerto publicado de Windows.
 Para ejecutar solo el backend local, reutilizar SQL en 14333 y seguir el inicio manual.
-No ejecutar el bootstrap de una instalaci?n nueva sobre bases existentes sin revisar su configuraci?n.
+No ejecutar el bootstrap de una instalación nueva sobre bases existentes sin revisar su configuración.
 
-Si ya est?n ocupados 8080 o 4200, usar puertos separados sin detener otras aplicaciones:
+Si ya están ocupados 8080 o 4200, usar puertos separados sin detener otras aplicaciones:
 
 ```powershell
 $env:FULL_SQLSERVER_PORT='14334'
@@ -83,7 +92,7 @@ docker compose -f compose.full.yaml --env-file EvaluacionJohnFarez-Cuentas/.env 
 
 En ese caso abrir http://localhost:14200 y Swagger en http://localhost:18080/q/swagger-ui/.
 Estas variables solo cambian los puertos del entorno completo; `SQLSERVER_PORT`
-sigue configurando la conexi?n del backend local. Conservar las contrase?as del volumen existente.
+sigue configurando la conexión del backend local. Conservar las contraseñas del volumen existente.
 
 Servicios y acceso:
 
@@ -128,7 +137,3 @@ El arranque está encadenado: `db-init` corre tras SQL Server `healthy`, el `bac
 `TransferenciaOperacion.decidir` mantiene débito, crédito y registro bajo una transacción local `@Transactional`. Bloqueo por clave (`sp_getapplock`) y bloqueos pesimistas de cuentas por ID ascendente evitan doble consumo. Acumulados y frecuencia se calculan bajo esos bloqueos. No hay HTTP dentro de la transacción financiera. Fallos técnicos hacen rollback completo.
 
 Rechazos por cuenta inactiva, saldo insuficiente, desbordamiento de destino o límite se registran sin tocar saldos; 422 se entrega después de confirmar el rechazo. Misma clave reproduce el error persistido. Cuerpos inválidos, cuentas iguales o inexistentes no crean rechazo persistido. Rechazos no consumen límite ni frecuencia. Un resultado técnico desconocido nunca se convierte en rechazo definitivo.
-
-Día de negocio: America/Guayaquil; UTC en persistencia. Resumen y contador de sospechosas: movimientos de salida del día actual. Son interpretaciones documentadas porque el PDF no fija zona ni período de sospechosas. No existe aprobación manual: en_revision ya ejecutó el movimiento.
-
-

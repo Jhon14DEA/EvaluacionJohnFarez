@@ -6,7 +6,24 @@ const key='evaluacion.transferencia.pendiente';
 const attempt={clave:'audit-key',datos:{cuentaOrigenId:'9007199254740993',cuentaDestinoId:'9223372036854775807',monto:'10.25'}};
 describe('Recuperacion segura del intento',()=>{
   beforeEach(()=>{sessionStorage.clear();TestBed.configureTestingModule({providers:[provideHttpClient(),provideHttpClientTesting()]});});
-  afterEach(()=>{vi.restoreAllMocks();TestBed.inject(HttpTestingController).verify();sessionStorage.clear();});
+  afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();TestBed.inject(HttpTestingController).verify();sessionStorage.clear();});
+  it('envia y recupera la misma clave cuando randomUUID no esta disponible en HTTP',()=>{
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) });
+    const service=TestBed.inject(TransferenciasService);
+    const intento=service.crearIntento(attempt.datos)!;
+    expect(intento.clave).toMatch(/^[0-9a-f]{32}$/);
+    expect(JSON.parse(sessionStorage.getItem(key)!)).toEqual(intento);
+    service.enviar(intento).subscribe();
+    const request=TestBed.inject(HttpTestingController).expectOne('/api/transferencias');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.headers.get('Idempotency-Key')).toBe(intento.clave);
+    expect(request.request.body).toEqual(attempt.datos);
+    request.flush({});
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({providers:[provideHttpClient(),provideHttpClientTesting()]});
+    const recovered=TestBed.inject(TransferenciasService);
+    expect(recovered.crearIntento(attempt.datos)).toEqual(intento);
+  });
   it('recupera despues de recrear el inyector sin alterar datos',()=>{
     sessionStorage.setItem(key,JSON.stringify(attempt));
     const service=TestBed.inject(TransferenciasService);

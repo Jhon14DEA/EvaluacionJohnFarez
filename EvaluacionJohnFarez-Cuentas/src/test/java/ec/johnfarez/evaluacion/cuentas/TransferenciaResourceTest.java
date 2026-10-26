@@ -59,7 +59,7 @@ class TransferenciaResourceTest {
     private void rechaza(Map<String,Object> body, int status, String codigo) throws Exception {
         String key = clave();
         enviar(body,key).then().statusCode(status).body("codigo",equalTo(codigo),
-            "mensaje",not(blankOrNullString()),"erroresCampos",notNullValue());
+            "mensaje",not(blankOrNullString()),"erroresCampos",notNullValue()); 
         assertEquals(status == 422 ? 1 : 0, registros(key));
     }
 

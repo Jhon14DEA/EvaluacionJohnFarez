@@ -42,7 +42,7 @@ export class TransferenciasService {
     if (this.recuperacionBloqueada()) return null;
     const previous = this.actual();
     if (!previous && !validRequest(datos)) return null;
-    const intento = previous ?? this.immutable({ clave: crypto.randomUUID(), datos });
+    const intento = previous ?? this.immutable({ clave: this.generarClave(), datos });
     this.actual.set(intento);
     try {
       sessionStorage.setItem(this.storageKey, JSON.stringify(intento));
@@ -51,6 +51,12 @@ export class TransferenciasService {
       this.errorAlmacenamiento.set('No se pudo guardar el intento. No se ha enviado esta solicitud. Conserva la pestana abierta y reintenta con los mismos datos y clave cuando el almacenamiento este disponible.');
       return null;
     }
+  }
+  private generarClave(): string {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    // getRandomValues también está disponible en HTTP fuera de localhost.
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
   }
   enviar(intento: IntentoTransferencia) {
     return this.http.post<unknown>(`${environment.transferenciasApiUrl}/transferencias`, intento.datos,
